@@ -1,0 +1,6 @@
+dotnet tool install --global dotnet-ef
+dotnet ef migrations add CreateProduct 
+dotnet ef database update
+
+dotnet ef migrations remove -> remove o último migration
+dotnet ef database update <20231017140058_CreateProduct> -> nome da migration especifica
