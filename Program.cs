@@ -1,30 +1,29 @@
+using Azure.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddDbContext<ApplicationDbContext>();
+builder.Services.AddSqlServer<ApplicationDbContext>(builder.Configuration["Database:SqlServer"]);
 var app = builder.Build();
 
 List<Product> lista = new List<Product>();
 
-app.MapPost("/products", ([FromBody]Product prod) => { 
-    bool equal = false;   
-    foreach (var item in lista)
+app.MapPost("/products", (ProductRequest productRequest, ApplicationDbContext context) => { 
+    var category = context.Categories.Where(c => c.Id == productRequest.CategoryId).First();
+    var product = new Product
     {
-        if(item.Code == prod.Code && item.Name == item.Name)
-            equal = true;
-    }
-    if(equal == false || lista.Count == 0)
-    {
-        lista.Add(prod);
-        return Results.Created("/product" + prod.Code, prod);   
-    } 
-    else
-    {
-        return Results.StatusCode(409);
-    }  
+        Code = productRequest.Code,
+        Name = productRequest.Name,
+        Description = productRequest.Description,
+        Category = category,
+    };
+
+    context.Products.Add(product);
+    context.SaveChanges();
+    return Results.Created($"/products/{product.Id}", product.Id);
 });
+
 app.MapDelete("/products/{code}", ([FromRoute]string code) => {
+    
     lista.RemoveAll(item => item.Code == code);
     return Results.Ok();
 });
@@ -64,21 +63,4 @@ if(app.Environment.IsStaging())
     });
 }
 
-
 app.Run();
-
-public class Product
-{
-    public int Id { get; set; }
-    public string Code{get; set;}
-    public string Name {get; set;}
-    public string Description { get; set; }
-}
-
-public class ApplicationDbContext : DbContext
-{
-    public DbSet<Product> Products { get; set; }
-
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)   
-        => optionsBuilder.UseSqlServer("Server=localhost;Database=Products;Trusted_Connection=True;Encrypt=NO;");
-}
